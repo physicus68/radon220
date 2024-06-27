@@ -14,7 +14,7 @@ Interface web de mesure de la décroissance radioactive du radon 220 en se conne
 ## Utilisation avec un simulateur sous Arduino Uno
 - On télécharge le [script](https://github.com/physicus68/radon220/tree/main/arduino_code/serie_echo_001) `serie_echo_001.ino` sur l'Arduino Uno.
 
-- La simulation démarre dès que la connextion se fait sur le port série.
+- La simulation démarre dès que la connexion est établie sur le port série.
 
 - L'Arduino Uno envoie les commandes avec la même syntaxe que le vrai appareil de mesure Jeulin
 
