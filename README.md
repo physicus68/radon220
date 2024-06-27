@@ -1,4 +1,4 @@
-# radon220
+# Radon 220
 ## Résumé
 Interface web de mesure de la décroissance radioactive du radon 220 en se connectant via le port série sur: 
 - le dispositif Jeulin (fiole de Lucas, modèle CALEN de la société Algade)
@@ -19,5 +19,7 @@ Interface web de mesure de la décroissance radioactive du radon 220 en se conne
 - L'Arduino Uno envoie les commandes avec la même syntaxe que le vrai appareil de mesure Jeulin
 
 ## Exemple
+  Acquisition d'une mesure via le simulateur téléchargé sur une Arduino Uno.
   
+  ![copie d'écran](./interface_radon220.png)
   
