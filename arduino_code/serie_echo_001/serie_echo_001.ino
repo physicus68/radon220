@@ -15,7 +15,7 @@ unsigned int N_i_1 = 0;
 unsigned long t_0 = 0;
 
 // K = exp( - ln(2) * dt /t_1_2 ) ;
-// on l'exprime x 100000
+// on l'exprime x 1000
 unsigned long K = 916;
 
 
@@ -43,18 +43,5 @@ void loop() {
     }
     t_0 = millis();
     Serial.print(N_i);
-  }
-  /*
-  mesure = random(1, 2999);
-  Serial.print(mesure);
-  if (LED) {
-    digitalWrite(LED_BUILTIN, HIGH);
-    Serial.print("on");
-  } else {
-    digitalWrite(LED_BUILTIN, LOW);
-    Serial.print("off");
-  }
-  LED = !LED;
-  delay(3000);
-  */
+  }  
 }
