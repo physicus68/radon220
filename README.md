@@ -7,7 +7,7 @@ Interface web de mesure de la décroissance radioactive du radon 220 en se conne
 ## Utilisation avec l'appareil de mesure Jeulin
 - L'appareil est connecté via un adaptateur RS232/USB sur le PC.
 
-- On lance la [page]([https://pages.github.com/](https://physicus68.github.io/radon220/)) en utilisant comme navigateur **Chrome** ou **Opera** (les autres ne sont pas encore compatibles avec Web Serial API)
+- On lance la [page](https://physicus68.github.io/radon220/) en utilisant comme navigateur **Chrome** ou **Opera** (les autres ne sont pas encore compatibles avec Web Serial API)
 
 - On connecte le navigateur sur le port série, puis on lance la mesure
   
