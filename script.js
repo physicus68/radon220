@@ -132,9 +132,9 @@ let graphique_vue = {
   xmin: 0.0,
   xmax: 400.0,
   ymin: 0.0,
-  ymax: 2000,
+  ymax: 1000,
   x_label: [0, 100, 200, 300, 400],
-  y_label: [0, 500, 1000, 1500, 2000],
+  y_label: [0, 250, 500, 750, 1000],
 
   getX: function (x) {
     return (
