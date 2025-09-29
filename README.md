@@ -1,4 +1,8 @@
 # Radon 220
+## Versions 
+- 29 septembre 2025: modification de l'échelle maximale à 1000 coups au lieu de 2000 ( javascript et ino).
+
+
 ## Résumé
 Interface web de mesure de la décroissance radioactive du radon 220 en se connectant via le port série sur: 
 - le dispositif Jeulin (fiole de Lucas, modèle CALEN de la société Algade)
