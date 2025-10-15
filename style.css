@@ -36,11 +36,12 @@ button{
   font-size: medium;
   border-collapse: collapse;
   background-color: white;
+  align-self: flex-start;
 }
 
-#tab_valeurs th,
-td {
-  width: 8em;
+
+#tab_valeurs th,td {
+  width: 7em;
   text-align: center;
 }
 
@@ -50,6 +51,7 @@ td {
 
 canvas {
   background-color: white;
+  align-self: flex-start;
 }
 
 #vues {

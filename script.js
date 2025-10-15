@@ -31,6 +31,7 @@ let mesure_radon220_model = {
   TIMEOUT: 5,
   timer_id: -1,
   MESURER: false,
+  PREMIERE_VAL: true,
   t0: 0,
 
   addModelListener: function (l) {
@@ -51,8 +52,9 @@ let mesure_radon220_model = {
 
   mesurer: function (b) {
     if (b) {
+      this.PREMIERE_VAL = true;
       this.modelInit();
-      this.t0 = Date.now();
+      //this.t0 = Date.now();
     }
     this.MESURER = b;
   },
@@ -85,6 +87,10 @@ let mesure_radon220_model = {
           // le compteur de radioactivité Algade).
           this.timer_id = setTimeout(() => {
             if (this.MESURER) {
+              if( this.PREMIERE_VAL){
+                this.PREMIERE_VAL = false;
+                this.t0 = Date.now();
+              }
               let t = (Date.now() - this.t0) * 0.001;
               this.modeleUpdated(t, message);
             }
@@ -132,9 +138,9 @@ let graphique_vue = {
   xmin: 0.0,
   xmax: 400.0,
   ymin: 0.0,
-  ymax: 1000,
-  x_label: [0, 100, 200, 300, 400],
-  y_label: [0, 250, 500, 750, 1000],
+  ymax: 2000,
+  x_label: [0, 50, 100, 150, 200,250,  300, 350, 400],
+  y_label: [0, 200,400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000],
 
   getX: function (x) {
     return (
@@ -152,15 +158,19 @@ let graphique_vue = {
 
   modelUpdated: function (t, N) {
     console.log("graphique vue: " + t.toFixed(1) + " " + N);
-    this.grille();
-    this.axes();
-    this.echelles();
+    //this.grille();
+    //this.axes();
+    //this.echelles();
     this.point(t, N);
   },
 
   modelInit: function () {
     this.vue = document.getElementById("graphique");
     this.ctx = this.vue.getContext("2d");
+    this.ctx.clearRect(0, 0, this.vue.width, this.vue.height);
+    this.grille();
+    this.axes();
+    this.echelles();
   },
 
   grille: function () {
@@ -230,7 +240,7 @@ let graphique_vue = {
   point: function (x, y) {
     this.ctx.save();
     this.ctx.beginPath();
-    this.ctx.arc(this.getX(x), this.getY(y), 2, 0, 2 * Math.PI);
+    this.ctx.arc(this.getX(x), this.getY(y), 3, 0, 2 * Math.PI);
     this.ctx.fillStyle = "red";
     this.ctx.fill();
     //this.ctx.stroke();
