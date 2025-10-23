@@ -2,49 +2,78 @@ if (!("serial" in navigator)) {
   alert("API webSerial non prise en charge (utiliser Chrome ou Opera)");
 }
 
-
-/*****************************************************************
+/******************************************************************************
  *
  * On utilise l'architecture Modèle - Vue - contrôleurs (MVC Architecture)
  * Les contrôleurs agissent sur un modèle
  * Une vue s'inscrit auprès du modèle
  * Le modèle avertit les vues que les données sont mises à jours
- * Les vues affichent ces données. 
+ * Les vues affichent ces données.
  *
- ****************************************************************/
+ *****************************************************************************/
 
-
-
-/*****************************************************************
+/******************************************************************************
  *
  * Modèle
  *  - il gère la connexion avec le port série
  *  - il prévient la liste de vues de sa mise à jour et de
  *    l'arrivée de nouvelles mesures
  *
- ****************************************************************/
+ *****************************************************************************/
 let mesure_radon220_model = {
+  // gestion des listeners
   model_listeners: [],
+  evt_new_data: 1,
+  evt_new_model: 2,
+
+  // port série
   port: null,
   textDecoder: new TextDecoderStream(),
   reader: null,
-  TIMEOUT: 5,
+  TIMEOUT: 15,
   timer_id: -1,
   MESURER: false,
-  PREMIERE_VAL: true,
+  PREMIERE_VAL: false,
+  ETAT: -1,
+  ETAT_ATTENTE: 0,
+  ETAT_RECEPTION: 1,
   t0: 0,
+  t_mesure: 0,
+
+  // données du modèle
+  liste_dates: [],
+  liste_N: [],
+  liste_N_modelise: [],
+  parametres_modele: [],
+  derniere_date: 0,
+  dernier_N: 0,
 
   addModelListener: function (l) {
     l.modele = this;
     this.model_listeners.push(l);
   },
-  modeleUpdated: function (t, message) {
+
+  modeleUpdated: function (evt) {
     this.model_listeners.forEach((l) => {
-      l.modelUpdated(t, message);
+      l.modelUpdated(evt);
     });
   },
 
+  dataUpdated: function (t, message) {
+    // mise à jour des données
+    this.dernier_N = message;
+    this.derniere_date = t;
+    this.liste_dates.push(this.derniere_date);
+    this.liste_N.push(this.dernier_N);
+    // on prévient les listeners
+    this.modeleUpdated(this.evt_new_data);
+  },
+
   modelInit: function () {
+    this.liste_N = [];
+    this.liste_dates = [];
+    this.liste_N_modelise = [];
+    this.parametres_modele = [];
     this.model_listeners.forEach((l) => {
       l.modelInit();
     });
@@ -54,7 +83,6 @@ let mesure_radon220_model = {
     if (b) {
       this.PREMIERE_VAL = true;
       this.modelInit();
-      //this.t0 = Date.now();
     }
     this.MESURER = b;
   },
@@ -64,13 +92,12 @@ let mesure_radon220_model = {
     await this.port.open({ baudRate: 19200 });
     this.port.readable.pipeTo(this.textDecoder.writable);
     this.reader = this.textDecoder.readable.getReader();
-    // on démarre une boucle qui écoute le port série 
-    // pour recevoir les données
+    // on démarre une boucle qui écoute le port série pour recevoir les données
     this.lecture_en_boucle();
   },
 
   lecture_en_boucle: async function () {
-    let message = "";
+    this.ETAT = this.ETAT_ATTENTE;
     if (this.port) {
       while (true) {
         const { value, done } = await this.reader.read();
@@ -78,32 +105,107 @@ let mesure_radon220_model = {
           this.reader.releaseLock();
           break;
         }
-        //le message peut arriver en plusieurs paquets, il faut
-        // attendre un certain temps pour qu'ils soient arrivés
-        if (this.timer_id < 0) {
-          // à la réception du premier caractère, on déclenche un timer
-          // pendant TIMEOUT ms au bout duquel on suppose que le message
-          // est terminé (il n'y a pas de caractère de fin de trame sur
-          // le compteur de radioactivité Algade).
-          this.timer_id = setTimeout(() => {
-            if (this.MESURER) {
-              if( this.PREMIERE_VAL){
-                this.PREMIERE_VAL = false;
+
+        if (this.MESURER) {
+          switch (this.ETAT) {
+            case this.ETAT_ATTENTE:
+              this.ETAT = this.ETAT_RECEPTION;
+              message = value;
+              if (this.PREMIERE_VAL) {
                 this.t0 = Date.now();
+                this.PREMIERE_VAL = false;
               }
-              let t = (Date.now() - this.t0) * 0.001;
-              this.modeleUpdated(t, message);
-            }
-            message = "";
-            clearTimeout(this.timer_id);
-            this.timer_id = -1;
-          }, this.TIMEOUT);
+              this.t_mesure = 0.001 * (Date.now() - this.t0);
+              // on démarre un timer qui indiquera la fin de message
+              this.timer_id = setTimeout(() => {
+                this.dataUpdated(this.t_mesure, message);
+                this.ETAT = this.ETAT_ATTENTE;
+              }, this.TIMEOUT);
+              break;
+
+            case this.ETAT_RECEPTION:
+              message = message + value;
+              break;
+          }
         }
-        message = message + value;
       }
     }
   },
+
+  modelisationDonnees: function () {
+    modele = getRegressionOrthogonale(this.liste_dates, this.liste_N);
+    this.liste_N_modelise = modele.liste_N_modele;
+    this.parametres_modele = modele.param;
+    this.modeleUpdated(this.evt_new_model);
+  },
 };
+
+/*****************************************************************
+ *
+ * Calcul d'une régression linéaire orthogonale ln(N)=ln(No)-L*t
+ * https://en.wikipedia.org/wiki/Deming_regression
+ *
+ ****************************************************************/
+function getRegressionOrthogonale(liste_t, liste_N) {
+  var liste_log_N = [];
+  var Lmax = liste_N.length;
+
+  // linéarisation de l'exponentielle
+  for (let i = 0; i < Lmax; i++) {
+    liste_log_N.push(Math.log(liste_N[i]));
+  }
+
+  // valeur moyenne de t
+  var t_moyen = 0;
+  for (let i = 0; i < Lmax; i++) {
+    t_moyen = t_moyen + liste_t[i];
+  }
+  t_moyen = t_moyen / Lmax;
+
+  // valeur moyenne de ln(N)
+  var lnN_moyen = 0;
+  for (let i = 0; i < Lmax; i++) {
+    lnN_moyen = lnN_moyen + liste_log_N[i];
+  }
+  lnN_moyen = lnN_moyen / Lmax;
+
+  // calcule de Sxx
+  var Sxx = 0;
+  for (let i = 0; i < Lmax; i++) {
+    Sxx = Sxx + (liste_t[i] - t_moyen) ** 2;
+  }
+
+  // calcule de Syy
+  var Syy = 0;
+  for (let i = 0; i < Lmax; i++) {
+    Syy = Syy + (liste_log_N[i] - lnN_moyen) ** 2;
+  }
+
+  // calcule de Sxy
+  var Sxy = 0;
+  for (let i = 0; i < Lmax; i++) {
+    Sxy = Sxy + (liste_t[i] - t_moyen) * (liste_log_N[i] - lnN_moyen);
+  }
+
+  // calcule de lambda = - beta_1
+  let lambda =
+    -(Syy - Sxx + Math.sqrt((Sxx - Syy) ** 2 + 4 * Sxy ** 2)) / (2 * Sxy);
+
+  // calcule de N0
+  let N0 = Math.exp(lnN_moyen + lambda * t_moyen);
+
+  // calcul des données modélisées N = No*exp(-L*t)
+  let liste_N_modele = [];
+  for (let i = 0; i < Lmax; i++) {
+    liste_N_modele.push(N0 * Math.exp(-lambda * liste_t[i]));
+  }
+
+  return {
+    liste_t: liste_t,
+    liste_N_modele: liste_N_modele,
+    param: [N0, lambda],
+  };
+}
 
 /*****************************************************************
  *
@@ -114,18 +216,22 @@ let mesure_radon220_model = {
  *
  ****************************************************************/
 
-// pour les test, affiche dans la console les évenements
+/* 
+    pour les test, affiche dans la console les évenements
+ */
 let console_vue = {
   modele: null,
-  modelUpdated: function (t, message) {
-    console.log("console vue: " + t.toFixed(1) + " " + message);
+  modelUpdated: function (evt) {
+    console.log("console vue: MODEL UPDATED" + this.modele);
   },
   modelInit: function () {
     console.log("console vue: INITIALISATION");
   },
 };
 
-// vue sous forme de graphique
+/*
+    vue sous forme de graphique
+*/
 let graphique_vue = {
   vue: null,
   ctx: null,
@@ -139,8 +245,8 @@ let graphique_vue = {
   xmax: 400.0,
   ymin: 0.0,
   ymax: 2000,
-  x_label: [0, 50, 100, 150, 200,250,  300, 350, 400],
-  y_label: [0, 200,400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000],
+  x_label: [0, 50, 100, 150, 200, 250, 300, 350, 400],
+  y_label: [0, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000],
 
   getX: function (x) {
     return (
@@ -156,19 +262,21 @@ let graphique_vue = {
     );
   },
 
-  modelUpdated: function (t, N) {
-    console.log("graphique vue: " + t.toFixed(1) + " " + N);
-    //this.grille();
-    //this.axes();
-    //this.echelles();
-    this.point(t, N);
+  modelInit: function () {
+    this.redrawGraph();
   },
 
-  modelInit: function () {
+  modelUpdated: function (evt) {
+    this.redrawGraph();
+  },
+
+  redrawGraph: function () {
     this.vue = document.getElementById("graphique");
     this.ctx = this.vue.getContext("2d");
     this.ctx.clearRect(0, 0, this.vue.width, this.vue.height);
     this.grille();
+    this.drawPoints();
+    this.drawModelisation();
     this.axes();
     this.echelles();
   },
@@ -237,26 +345,85 @@ let graphique_vue = {
     this.ctx.restore();
   },
 
+  drawPoints: function () {
+    for (let i = 0; i < this.modele.liste_dates.length; i++) {
+      this.point(this.modele.liste_dates[i], this.modele.liste_N[i]);
+    }
+  },
+
   point: function (x, y) {
     this.ctx.save();
     this.ctx.beginPath();
     this.ctx.arc(this.getX(x), this.getY(y), 3, 0, 2 * Math.PI);
     this.ctx.fillStyle = "red";
     this.ctx.fill();
-    //this.ctx.stroke();
+    this.ctx.restore();
+  },
+
+  drawModelisation: function () {
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.strokeStyle = "blue";
+    this.ctx.lineWidth = 1;
+
+    if (this.modele.liste_N_modelise.length > 0) {
+      this.ctx.moveTo(
+        this.getX(this.modele.liste_dates[0]),
+        this.getY(this.modele.liste_N_modelise[0])
+      );
+      for (let i = 0; i < this.modele.liste_dates.length; i++) {
+        this.ctx.lineTo(
+          this.getX(this.modele.liste_dates[i]),
+          this.getY(this.modele.liste_N_modelise[i])
+        );
+      }
+    }
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // affichage parametres
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.font = "18px monospace";
+    this.ctx.textAlign = "left";
+    this.ctx.textBaseline = "middle";
+    if (this.modele.parametres_modele.length > 0) {
+      let lambda = this.modele.parametres_modele[1].toFixed(4);
+      let Nzero = this.modele.parametres_modele[0].toFixed(0);
+      if (lambda != "NaN") {
+        this.ctx.fillText(
+          "\u03bb  = " + lambda + " /s",
+          this.getX(100),
+          this.getY(1840)
+        );
+        this.ctx.fillText("No = " + Nzero, this.getX(100), this.getY(1650));
+      }
+    }
+    this.ctx.stroke();
     this.ctx.restore();
   },
 };
 
-// vue sous forme de tableau
+/*
+  vue sous forme de tableau
+*/
 let tableau_vue = {
+  modele: null,
   vue: null,
-  modelUpdated: function (t, N) {
+
+  modelUpdated: function (evt) {
+    if (this.modele.evt_new_model == evt) {
+      return;
+    }
+    t = this.modele.derniere_date;
+    N = this.modele.dernier_N;
     let ligne = this.vue.insertRow(-1);
     let cellule_temps = ligne.insertCell(0);
     let cellule_coups = ligne.insertCell(1);
     cellule_coups.appendChild(document.createTextNode(N));
-    cellule_temps.appendChild(document.createTextNode(t.toFixed(1).replace(".",",")));
+    cellule_temps.appendChild(
+      document.createTextNode(t.toFixed(1).replace(".", ","))
+    );
   },
 
   modelInit: function () {
@@ -291,9 +458,13 @@ document.getElementById("mesurer").addEventListener("click", (event) => {
   }
 });
 
+document.getElementById("modeliser").addEventListener("click", (event) => {
+  mesure_radon220_model.modelisationDonnees();
+});
+
 /*****************************************************************
  *
- * Application: les vues s'inscrivent auprès du modèle pour 
+ * Application: les vues s'inscrivent auprès du modèle pour
  * recevoir les données à afficher.
  *
  ****************************************************************/
