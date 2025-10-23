@@ -1,5 +1,6 @@
 # Radon 220
 ## Versions 
+- 23 octobre 2025: version 2, ajout fonctionnalité modélisation, remise en forme du code
 - 15 octobre 2025: amélioration de la mise en page (scrolling, axes graphe, taille points, ordre d'affichage), date première mesure t=0s, 
 - 29 septembre 2025: modification de l'échelle maximale à 1000 coups au lieu de 2000 ( javascript et ino).
   
