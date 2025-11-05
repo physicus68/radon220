@@ -244,9 +244,9 @@ let graphique_vue = {
   xmin: 0.0,
   xmax: 400.0,
   ymin: 0.0,
-  ymax: 2000,
+  ymax: 1000,
   x_label: [0, 50, 100, 150, 200, 250, 300, 350, 400],
-  y_label: [0, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000],
+  y_label: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
 
   getX: function (x) {
     return (
@@ -392,11 +392,11 @@ let graphique_vue = {
       let Nzero = this.modele.parametres_modele[0].toFixed(0);
       if (lambda != "NaN") {
         this.ctx.fillText(
-          "\u03bb  = " + lambda + " /s",
+          "\u03bb  = " + lambda + " s\u207B\u00B9",
           this.getX(100),
-          this.getY(1840)
+          this.getY(this.ymax - 150)
         );
-        this.ctx.fillText("No = " + Nzero, this.getX(100), this.getY(1650));
+        this.ctx.fillText("No = " + Nzero, this.getX(100), this.getY(this.ymax - 250));
       }
     }
     this.ctx.stroke();
